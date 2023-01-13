@@ -11,7 +11,7 @@ You will have to modify the existing `gitlab-ci.yml` file to include:
         - remote: 'https://github.com/detecttechnologies/Gitlab-CI-CD-Templates/raw/main/knowledge-portal/source/.gitlab-ci.yml'
 
 ```
-## Configure CI/CD variables
+## Configure CI/CD variables (Deprecated)
 
 1. Go to `Settings >> CI/CD >> Variables`
 2. Click on `Add variable`. 
@@ -33,8 +33,14 @@ An example of a `docs-manifest.txt` file is added below:
 README.md-->folder1/folder3/hello.md
 README.md-->folder2/README.md
 fol1/read.md-->folder2/read.md
-fol2/-->/
+fol2/-->fol2/
 ```
 Notes:
 1. (! Important) RHS of `-->` has to be unique across all manifest files.
-2. The last line in the sample above (`fol2/-->/`) shows how a folder can be copied as-is to the destination repo
+2. The last line in the sample above (`fol2/-->fol2/`) shows how a folder can be copied as-is to the destination repo
+
+To explicitly specify a file/subfolder that shouldn't get copied while you are copying entire folder, you can add the source path with `!` in prefix. i.e,
+```txt
+!fol2/photo.jpg
+!fol2/anotherfolder/
+```

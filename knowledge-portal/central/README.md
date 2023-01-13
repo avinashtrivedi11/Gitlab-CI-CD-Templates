@@ -16,6 +16,7 @@ include:
 3. Select the role `Maintainer` and `write_repository` as the scope of token.
 4. `Create project access token` will create a unique token for you that can then be shared with `maintainers` setting up individual `source` pipelines.
 
+
 ## Setting up BOT_ACCESS_TOKEN variable 
 
 1. Go to `Settings >> CI/CD >> Variables`
