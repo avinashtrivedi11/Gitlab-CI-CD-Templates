@@ -4,7 +4,7 @@ merge-request-to-source:
     script:
         - git config --global user.email "Platformteam@detecttechnologies.com"
         - git config --global user.name "Detect Gitlab Bot"     
-        -  bash -c "$(curl -fsSL https://github.com/detecttechnologies/Gitlab-CI-CD-Templates/raw/main/knowledge-portal/central/initiate-push-to-source.sh)"
+        - bash -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/develop/knowledge-portal/central/initiate-push-to-source.sh)"
     only:
         refs:
             - main

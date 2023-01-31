@@ -39,7 +39,7 @@ include:
 - All commits from `Knowledge Portal` starts with commit message `docs:....`
 - We check this substring `docs:` in the commit message to ensure the same.
 
-    Notes: `Knowledge Portal` creates new commits for every changed file, if multiple files on `Knowledge Portal` are modified and saved at almost exact time, the pipeline on `central` repo only runs for latest commit(sometimes, latest theory: this only happens when you do a `Force Sync` opeartion under `Storage` on wikijs). 
+    Notes: `Knowledge Portal` creates new commits for every changed file, if multiple files on `Knowledge Portal` are modified and saved at almost exact time, the pipeline on `central` repo only runs for latest commit(best guess: this only happens when you do a `Force Sync` opeartion under `Storage` on wikijs). 
     -  To resolve, this issue, we check last 5 commits starting from the latest commit until `docs:` pattern break.  
     - A drawback of this implementation is that, it will add commits to same MR incase pipeline actually ran for previous commits as well.    
 

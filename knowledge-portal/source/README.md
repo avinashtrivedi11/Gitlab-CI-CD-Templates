@@ -11,7 +11,7 @@ You will have to modify the existing `gitlab-ci.yml` file to include:
         - remote: 'https://github.com/detecttechnologies/Gitlab-CI-CD-Templates/raw/main/knowledge-portal/source/.gitlab-ci.yml'
 
 ```
-## Configure CI/CD variables (Deprecated)
+## Configure CI/CD variables (applied on overall gitlab instance)
 
 1. Go to `Settings >> CI/CD >> Variables`
 2. Click on `Add variable`. 

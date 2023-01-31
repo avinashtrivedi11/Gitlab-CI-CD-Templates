@@ -3,7 +3,7 @@
 set -e
 
 # Run python script for pipeline checks and get mappings if all is well
-output=$(python3 -c "$(curl -fsSL https://github.com/detecttechnologies/Gitlab-CI-CD-Templates/raw/main/knowledge-portal/source/source-pipeline-checks.py)")
+output=$(python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/develop/knowledge-portal/source/source-pipeline-checks.py)")
 echo "Done, Mappings: ${output}"
 
 # Extract the unique path (Subpath) from Repository url      

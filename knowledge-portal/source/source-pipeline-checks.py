@@ -2,8 +2,8 @@ import os
 import sys
 from glob import glob
 
-# Search for manifest file
-manifest_file = glob("docs-manifest.txt")[0]
+# Max filesize to be copied over to central
+FILESIZE_LIMIT = 500
 
 # Check if folder copy scenario; if yes, get all files in the folder recursively
 def check_for_folders(source_paths):
@@ -17,7 +17,6 @@ def check_for_folders(source_paths):
                     mycwd = os.getcwd()
                     os.chdir(source_path)
                     files = glob('**/*.*', recursive=True)
-                    #files = [f"{source_path}{file}" for file in files]
                     os.chdir(mycwd)
                     folder_mappings[source_path] = files
                 else:
@@ -25,6 +24,7 @@ def check_for_folders(source_paths):
         else:
             sys.exit(f"Check failed! This file/folder: {source_path} mentioned in manifest file doesn't exist or you have not ended your folder copy with (/)")
     return folder_mappings
+
 
 # source files to delete before copying
 def remove_paths(mappings, source_paths_to_remove):
@@ -71,14 +71,14 @@ def check_filesize(mappings, size):
             sys.exit(f"Check failed: {source_path} is too large to copy (>500KB). Current size: {file_size}.")
     return mappings
 
-with open(manifest_file, 'r') as f:
+with open("docs-manifest.txt", 'r') as f:
     lines = f.readlines()
 
     # Get all lines with '!' pattern
     lines_with_exclamation = [line.strip() for line in lines if "!" in line]
 
     # Get all lines with '-->' pattern 
-    lines_with_arrows = [line.strip() for line in lines if "-->" in line and "~" not in line]
+    lines_with_arrows = [line.strip() for line in lines if "-->" in line]
         
     # Get source and central paths as key:value pair
     # central is key and source is value as central mappings are unique
@@ -105,8 +105,7 @@ with open(manifest_file, 'r') as f:
     mappings = check_for_spaces(mappings)
 
     # Check if filesize of a mapping is >500KB
-    size = 500
-    mappings = check_filesize(mappings, size)
+    mappings = check_filesize(mappings, FILESIZE_LIMIT)
 
     # Write to bash output variable if all checks pass
     mapping_array = []

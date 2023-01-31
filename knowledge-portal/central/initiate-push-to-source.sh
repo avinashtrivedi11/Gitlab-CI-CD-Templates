@@ -26,7 +26,7 @@ then
     git add -A && git commit -m "docs:reversing soft reset as now we have the filenames"
 
     # Run python script to get output in format "source_repo_name:filepath_central_gitrepo-->filepath_source_gitrepo"
-    output=$(python3 -c "$(curl -fsSL https://github.com/detecttechnologies/Gitlab-CI-CD-Templates/raw/main/knowledge-portal/central/central-pipeline-checks.py)" $changed_files)
+    output=$(python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/develop/knowledge-portal/central/central-pipeline-checks.py)" $changed_files)
     
     # Create an array to keep track of all unique source repos in which files have been modified
     declare -a source_repo_array
@@ -50,7 +50,7 @@ then
         if [ -d "$unique_directory" ]
         then
             # Remove existing and Copy changed files to unique_directory
-            cp -v ./${central_path} ${unique_directory}/${source_path}
+            cp -rv ./${central_path}/* ${unique_directory}/${source_path}
         else
             # Create directory, clone source repo, create branch, and initiate copy
             mkdir -p ${unique_directory}
@@ -59,7 +59,7 @@ then
             cd ${unique_directory}
             git checkout -B knowledge-portal_changes
             cd -
-            cp -v ./${central_path} ${unique_directory}/${source_path}
+            cp -rv ./${central_path}/* ${unique_directory}/${source_path}
         fi
     done <<< ${output} 
     echo "Done"

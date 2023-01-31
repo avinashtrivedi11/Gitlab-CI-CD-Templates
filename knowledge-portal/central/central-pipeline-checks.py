@@ -35,7 +35,8 @@ for manifest in manifests_lst:
                 paths[central_path] = line.split('-->')[0]    
         
         # Iterate through RHS and see if we find any matches in changed files
-        for central_path in paths.keys():
-            if central_path in changed_files:
+        for central_path in paths.keys():  
+            matches = [s for s in changed_files if central_path in s]
+            if matches:
                 source_path = ''.join(map(str, paths[central_path]))
                 print(f"{repo_name}:{central_path}-->{source_path}")
