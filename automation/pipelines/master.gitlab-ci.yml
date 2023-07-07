@@ -1,0 +1,66 @@
+# overall pipeline rules
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: never  # Prevent pipeline run autromatically for push event
+    - when: always # Run pipeline for all other cases
+
+# pipeline variables: to choose an environment during runtime
+variables:
+  CLIENTS: 
+    value: "dev"
+    description: "Enter client's name separated by comma. Set to 'dev' for develop branch by default."
+  IMAGE_TAG:
+    value: "dev"
+    description: "Docker image in BE repos will use this value to tag the image."
+  RUN_AUTOMATION_TEST:
+    value: "false"
+    description: "Set to true if you want to also run the QA tests for the respective portal."
+  LATEST_DEPLOYMENT_CHECK:
+    value: "true"
+    description: "Checks whether the latest commit is already deployed."
+
+stages:
+  - identify
+  - trigger
+
+identify_clients:
+  stage: identify
+  image: python:3.10
+  tags:
+    - saas-linux-medium-amd64
+  before_script:
+  - pip install toml pyyaml requests &>/dev/null
+  script:
+    - python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/identify_clients.py)"
+  artifacts:
+    paths:
+      - trigger-deployment.yml
+
+identify_tests:
+  stage: identify
+  image: python:3.10
+  before_script:
+    - pip install toml pyyaml &>/dev/null
+  script:
+    - python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/identify_portal_url.py)"
+  rules:
+    - if: $RUN_AUTOMATION_TEST == "true"
+
+trigger_clients:
+  stage: trigger
+  needs: ["identify_clients"]
+  trigger:
+    include:
+      - artifact: trigger-deployment.yml
+        job: identify_clients
+    strategy: depend
+
+trigger_tests:
+  stage: trigger
+  needs: ["trigger_clients"]
+  trigger:
+    include: 
+      - artifact: trigger-automation-test.yml
+        job: identify_tests
+    strategy: depend

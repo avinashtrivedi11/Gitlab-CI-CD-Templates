@@ -1,0 +1,158 @@
+# Include Gitlab template Jobs
+include:
+  - template: Jobs/Code-Quality.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/Container-Scanning.gitlab-ci.yml
+
+# Create docker:dind service to run docker commands
+services:
+  - name: docker:dind
+
+# Define pipeline stages
+stages:
+  - build
+  - test
+  - migrate
+  - deploy
+
+
+# Pipeline trigger from master repo scenario
+# creates a docker image with TAG and saves in container registry of repo 
+
+# docker build job
+build_docker:
+  stage: build
+  image: docker:20
+  before_script:
+    - apk add --update --no-cache python3 py3-pip curl bash git
+    - pip install toml
+    - source <(python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/set_environment_variables.py)")
+  script:
+    - bash -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/build_docker.sh)"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: never   
+
+# Base container scannig configuration 
+container_scanning:
+  # tags:
+  #   - saas-linux-medium-amd64
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      variables:
+        GIT_STRATEGY: fetch
+        CS_IMAGE: $CI_REGISTRY_IMAGE:$TAG
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        TAG: merge_requests
+        GIT_STRATEGY: fetch
+        CS_IMAGE: $CI_REGISTRY_IMAGE:$TAG
+    
+# black job in test stage
+black:
+  stage: test
+  # tags:
+  #   - saas-linux-medium-amd64
+  image: detecttechnologies/python-code-quality:latest
+  script:
+    - black --diff --color --line-length 119 . || true
+    - black --check --line-length 119 . || true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+
+# pylama job in test stage
+pylama:
+  stage: test
+  # tags:
+  #   - saas-linux-medium-amd64
+  image: detecttechnologies/python-code-quality:latest
+  script:
+    - pylama . || true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+
+# Template test jobs to only run on merge requests
+code_quality:
+  # tags:
+  #   - saas-linux-medium-amd64
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+
+secret_detection:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+
+semgrep-sast:
+  # tags:
+  #   - saas-linux-medium-amd64
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+
+
+# Migrate and Prepopulate Jobs
+migration_and_pre-population:
+  stage: migrate
+  image: python:3.8
+  # tags:
+  #   - saas-linux-medium-amd64
+  before_script:
+    - pip install toml pyotp &>/dev/null
+    - apt update && apt-get -y install jq curl chrony openvpn iputils-ping openssh-client &>/dev/null
+    - source <(python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/set_environment_variables.py)")
+    - pip install -r $ROOT_FOLDER/requirements.txt &>/dev/null
+  script:
+    - cd $ROOT_FOLDER
+    ## Sync time with NTP server
+    - service chrony start
+    - chronyc -a 'burst 4/4' && sleep 10
+    - chronyc sources
+    ## Connect to VPN
+    - python3 -c "$(curl -fsSL https://github.com/detecttechnologies/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/connect_vpn.py)"
+    - sleep 20s
+    - cat client.log
+    - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+    - IP_ADDRESS=$(curl ifconfig.me)
+    - echo "Public IP Address:$IP_ADDRESS"
+    - echo "Starting migration..."
+    # - python manage.py makemigrations $APP_NAME
+    - plants=$(python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/api_call.py)")
+    - |
+      for plant in ${plants[@]}
+      do
+        db=$plant
+        echo "Applying migration for ${db} plant"
+        python manage.py migrate $APP_NAME --database $db
+        python manage.py create_fixtures $db
+      done
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+
+# Docker Deploy Jobs
+# Pipeline trigger from master repo scenario
+# base job to inherit from
+# pulls docker image from container registry, pushes to ECR, and update service on ECS
+
+deploy_docker:
+  stage: deploy
+  image: docker:20
+  # tags:
+  #   - saas-linux-medium-amd64
+  environment:
+    name: $ENVIRONMENT
+  before_script:
+    - apk update
+    - apk add --no-cache curl bash git &>/dev/null
+    - apk add --no-cache python3 py3-pip &>/dev/null
+    - pip3 install --no-cache-dir awscli toml boto3 jq &>/dev/null
+  script:
+    - bash -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/deploy_docker.sh)"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - when: never
