@@ -58,7 +58,7 @@ trigger_clients:
 
 trigger_tests:
   stage: trigger
-  needs: ["trigger_clients"]
+  needs: ["trigger_clients", "identify_tests"]
   trigger:
     include: 
       - artifact: trigger-automation-test.yml
