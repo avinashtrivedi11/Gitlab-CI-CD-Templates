@@ -43,7 +43,7 @@ identify_tests:
   before_script:
     - pip install toml pyyaml &>/dev/null
   script:
-    - python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/identify_portal_url.py)"
+    - python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/identify_portal_url.py)" $AUTOMATION_TESTING_REPO_BRANCH $AUTOMATION_TESTING_REPO_PATH
   rules:
     - if: $RUN_AUTOMATION_TEST == "true"
   artifacts:

@@ -1,4 +1,4 @@
-import os
+import sys
 import toml
 import yaml
 
@@ -10,8 +10,8 @@ def get_clients(clients_string):
 
 def generate_automation_test_pipeline(clients_portal_urls):
     # Reads environment variables for repo path and branch
-    automation_testing_repo_path = os.environ['AUTOMATION_TESTING_REPO_PATH']
-    automation_testing_repo_branch = os.environ['AUTOMATION_TESTING_REPO_BRANCH']
+    automation_testing_repo_path = sys.argv[2]
+    automation_testing_repo_branch = sys.argv[1]
 
     # Defines dynamic_config for triggering automation tests
     dynamic_config = {
