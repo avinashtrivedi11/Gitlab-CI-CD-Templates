@@ -64,3 +64,5 @@ trigger_tests:
       - artifact: trigger-automation-test.yml
         job: identify_tests
     strategy: depend
+  rules:
+    - if: $RUN_AUTOMATION_TEST == "true"
