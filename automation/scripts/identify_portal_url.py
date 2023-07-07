@@ -10,7 +10,7 @@ def get_clients(clients_string):
 
 def generate_automation_test_pipeline(clients_portal_urls):
     # Reads environment variables for repo path and branch
-    automation_testing_repo_path = sys.argv['AUTOMATION_TESTING_REPO_PATH']
+    automation_testing_repo_path = os.environ['AUTOMATION_TESTING_REPO_PATH']
     automation_testing_repo_branch = os.environ['AUTOMATION_TESTING_REPO_BRANCH']
     print(automation_testing_repo_branch, automation_testing_repo_path)
     # Defines dynamic_config for triggering automation tests
@@ -24,11 +24,14 @@ def generate_automation_test_pipeline(clients_portal_urls):
                 'strategy': 'depend'
             },
             'parallel': {
-                'matrix': [{'PORTAL_URL': url} for url in clients_portal_urls] 
+                'matrix': []
             },
         }
     }
-
+    for client_portal_url in clients_portal_urls:
+        dynamic_config["trigger_automation_test"]["parallel"]["matrix"].append({
+                "PORTAL_URL": client_portal_url,
+            })
     return dynamic_config
 
 def main():
