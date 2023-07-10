@@ -49,7 +49,7 @@ do
     git checkout --quiet ${branch} 2>/dev/null || git checkout -b ${branch}
 
     #Delete all files before pushing if any
-    git rm -rf * || true
+    rm -rf * || true
     git commit -m "removing previous builds" || true
     git push --quiet origin HEAD:${branch} -f || true
     cd -
