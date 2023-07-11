@@ -54,28 +54,28 @@ build_dist:
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 
-# # NG lint job in test stage
-# ng_lint:
-#   stage: test
-#   image: node:16.14.2
-#   tags:
-#     - saas-linux-medium-amd64
-#   script:
-#     - npm i -g @angular/cli@13.3.10
-#     - ng add @angular-eslint/schematics --skip-confirmation
-#     - cat package.json
-#     - cat .eslintrc.json
-#     - ng lint || true
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules
-#     policy: pull
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_PIPELINE_SOURCE == "pipeline"
+# NG lint job in test stage
+ng_lint:
+  stage: test
+  image: node:16.14.2
+  tags:
+    - saas-linux-medium-amd64
+  script:
+    - npm i -g @angular/cli@13.3.10
+    - ng add @angular-eslint/schematics --skip-confirmation
+    - cat package.json
+    - cat .eslintrc.json
+    - ng lint || true
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules
+    policy: pull
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 code_quality:
   tags:
