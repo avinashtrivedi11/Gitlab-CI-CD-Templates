@@ -5,6 +5,10 @@ workflow:
       when: never  # Prevent pipeline run autromatically for push event
     - when: always # Run pipeline for all other cases
 
+default:
+  tags:
+    - saas-linux-medium-amd64
+
 # pipeline variables: to choose an environment during runtime
 variables:
   CLIENTS: 
@@ -26,24 +30,20 @@ stages:
 
 identify_clients:
   stage: identify
-  image: python:3.10
-  tags:
-    - saas-linux-medium-amd64
-  before_script:
-  - pip install toml pyyaml requests &>/dev/null
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
   script:
-    - python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/identify_clients.py)"
+    - cp -R /app/scripts/* ./
+    - python3 identify_clients.py
   artifacts:
     paths:
       - trigger-deployment.yml
 
 identify_tests:
   stage: identify
-  image: python:3.10
-  before_script:
-    - pip install toml pyyaml &>/dev/null
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
   script:
-    - python3 -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/identify_portal_url.py)"
+    - cp -R /app/scripts/* ./
+    - python3 identify_portal_url.py
   rules:
     - if: $RUN_AUTOMATION_TEST == "true"
   artifacts:

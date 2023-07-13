@@ -10,13 +10,17 @@ stages:
   - test
   - deploy
 
+default:
+  tags:
+    - saas-linux-medium-amd64
+
 # Build Stage
 # Get node_modules
 install_dependencies:
-  image: node:16.14.2
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-nodejs:1.0
   stage: build
-  tags:
-    - saas-linux-medium-amd64
+  variables:
+    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
   script:
     - npm ci
   cache:
@@ -32,9 +36,9 @@ install_dependencies:
 build_dist:
   stage: build
   needs: ["install_dependencies"]
-  image: node:16.14.2
-  tags:
-    - saas-linux-medium-amd64
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-nodejs:1.0
+  variables:
+    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
   before_script:
     - apt-get update && apt-get install -y git bash
   script:
@@ -54,53 +58,45 @@ build_dist:
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 
-# NG lint job in test stage
-ng_lint:
-  stage: test
-  image: node:16.14.2
-  tags:
-    - saas-linux-medium-amd64
-  script:
-    - npm i -g @angular/cli@13.3.10
-    - ng add @angular-eslint/schematics --skip-confirmation
-    - cat package.json
-    - cat .eslintrc.json
-    - ng lint || true
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules
-    policy: pull
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
+# # NG lint job in test stage
+# ng_lint:
+#   stage: test
+#   image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-nodejs:1.0
+#   variables:
+#     DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
+#   script:
+#     - npm i -g @angular/cli@13.3.10
+#     - ng add @angular-eslint/schematics --skip-confirmation
+#     - cat package.json
+#     - cat .eslintrc.json
+#     - ng lint || true
+#   cache:
+#     key:
+#       files:
+#         - package-lock.json
+#     paths:
+#       - node_modules
+#     policy: pull
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 code_quality:
-  tags:
-    - saas-linux-medium-amd64
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 nodejs-scan-sast:
-  tags:
-    - saas-linux-medium-amd64
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 secret_detection:
-  tags:
-    - saas-linux-medium-amd64
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 semgrep-sast:
-  tags:
-    - saas-linux-medium-amd64
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
@@ -112,31 +108,28 @@ semgrep-sast:
 
 deploy_dist:
   stage: deploy
-  image: python:3.10
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
   variables:
     TZ: "Asia/Kolkata"
-  tags:
-    - saas-linux-medium-amd64
+  variables:
+    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
   environment:
     name: $ENVIRONMENT
-  before_script:
-    - apt update && apt-get -y install git rsync jq curl chrony openvpn iputils-ping openssh-client &>/dev/null
-    - pip install --no-cache-dir awscli &>/dev/null
-    - pip install toml pyotp boto3 jq &>/dev/null
   script:
+    - cp -R /app/scripts/* ./
     ## Sync time with NTP server
     - service chrony start
     - chronyc -a 'burst 4/4' && sleep 10
     - chronyc sources
     ## Connect to VPN
-    - python3 -c "$(curl -fsSL https://github.com/detecttechnologies/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/connect_vpn.py)"
+    - python3 connect_vpn.py
     - sleep 20s
     - cat client.log
     - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
     - IP_ADDRESS=$(curl ifconfig.me)
     - echo "Public IP Address:$IP_ADDRESS"
     ## Deploy to EC2 VM
-    - bash -c "$(curl -fsSL https://github.com/avinashtrivedi11/Gitlab-CI-CD-Templates/raw/dashboard-ci/automation/scripts/deploy_dist.sh)"
+    - bash deploy_dist.sh
   rules:
     - if: $CI_PIPELINE_SOURCE == "pipeline"
     - when: never
