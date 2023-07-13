@@ -89,39 +89,39 @@ semgrep-sast:
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 
-# # Migrate and Prepopulate Jobs
-# migration_and_pre-population:
-#   stage: migrate
-#   image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-migration:1.0
-#   variables:
-#     DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
-#   script:
-#     - cp -R /app/scripts/* ./
-#     - source <(python3 set_environment_variables.py)
-#     - service chrony start
-#     ## Connect to VPN
-#     - python3 connect_vpn.py
-#     - sleep 10s
-#     - cat client.log
-#     - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-#     - IP_ADDRESS=$(curl ifconfig.me)
-#     - echo "Public IP Address:$IP_ADDRESS"
-#     - echo "Getting database credentials"
-#     - plants=$(python3 api_call.py)
-#     - echo "Installing requirements"
-#     - cd $ROOT_FOLDER
-#     - pip install -r requirements.txt
-#     - echo "Starting migration..."
-#     - |
-#       for plant in ${plants[@]}
-#       do
-#         db=$plant
-#         echo "Applying migration for ${db} plant"
-#         python manage.py migrate $APP_NAME --database $db
-#         python manage.py create_fixtures $db
-#       done
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "pipeline"
+# Migrate and Prepopulate Jobs
+migration_and_pre-population:
+  stage: migrate
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-migration:1.0
+  variables:
+    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
+  script:
+    - cp -R /app/scripts/* ./
+    - source <(python3 set_environment_variables.py)
+    - service chrony start
+    ## Connect to VPN
+    - python3 connect_vpn.py
+    - sleep 10s
+    - cat client.log
+    - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+    - IP_ADDRESS=$(curl ifconfig.me)
+    - echo "Public IP Address:$IP_ADDRESS"
+    - echo "Getting database credentials"
+    - plants=$(python3 api_call.py)
+    - echo "Installing requirements"
+    - cd $ROOT_FOLDER
+    - pip install -r requirements.txt
+    - echo "Starting migration..."
+    - |
+      for plant in ${plants[@]}
+      do
+        db=$plant
+        echo "Applying migration for ${db} plant"
+        python manage.py migrate $APP_NAME --database $db
+        python manage.py create_fixtures $db
+      done
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 # Docker Deploy Jobs
 # Pipeline trigger from master repo scenario
