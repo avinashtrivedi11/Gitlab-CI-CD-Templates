@@ -107,6 +107,7 @@ migration_and_pre-population:
     - IP_ADDRESS=$(curl ifconfig.me)
     - echo "Public IP Address:$IP_ADDRESS"
     - echo "Getting database credentials"
+    - python3 api_call.py
     - plants=$(python3 api_call.py)
     - echo "Installing requirements"
     - cd $ROOT_FOLDER
