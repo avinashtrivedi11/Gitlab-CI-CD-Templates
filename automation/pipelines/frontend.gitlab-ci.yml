@@ -1,135 +1,66 @@
-# Include Gitlab template Jobs
+# Predefined templates for code quality and security checks
 include:
   - template: Jobs/Code-Quality.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
 
-# Define pipeline stages
+# Define the sequence of pipeline stages
 stages:
-  - build
+  - generate
   - test
-  - deploy
 
-default:
-  tags:
-    - saas-linux-medium-amd64
-
-# Build Stage
-# Get node_modules
-install_dependencies:
-  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-nodejs:1.0
-  stage: build
+# Generate frontend pipeline configuration
+frontend_pipeline_generator:
+  stage: generate
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
   variables:
     DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
   script:
-    - npm ci
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-
-build_dist:
-  stage: build
-  needs: ["install_dependencies"]
-  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-nodejs:1.0
-  variables:
-    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
-  before_script:
-    - apt-get update && apt-get install -y git bash
-  script:
-    - npm run build
+    - cp -R /app/scripts/* ./
+    - python3 frontend_pipeline_generator.py
   artifacts:
     paths:
-      - $CI_PROJECT_DIR/dist
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules
-    policy: pull
+      - frontend_pipeline.yml
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
-
-# # NG lint job in test stage
-# ng_lint:
-#   stage: test
-#   image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-nodejs:1.0
-#   variables:
-#     DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
-#   script:
-#     - npm i -g @angular/cli@13.3.10
-#     - ng add @angular-eslint/schematics --skip-confirmation
-#     - cat package.json
-#     - cat .eslintrc.json
-#     - ng lint || true
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules
-#     policy: pull
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_PIPELINE_SOURCE == "pipeline"
-
+# Trigger the pipeline using the generated configuration
+frontend_pipeline_trigger:
+  stage: generate
+  needs: ["frontend_pipeline_generator"]
+  trigger:
+    include:
+      - artifact: frontend_pipeline.yml
+        job: frontend_pipeline_generator
+    strategy: depend
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+  
+# Code quality checks; primarily triggered on merge requests
 code_quality:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"  
+      when: never 
+    - when: never
 
-nodejs-scan-sast:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-
+# Detect any exposed secrets in the code; primarily triggered on merge requests
 secret_detection:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"  
+    - when: never
 
+# Static security analysis for Node.js; primarily triggered on merge requests
+nodejs-scan-sast:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"  
+    - when: never
+
+# Static security analysis using Semgrep; primarily triggered on merge requests
 semgrep-sast:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-
-
-# Deploy Jobs
-# Deploys to EC2 VM
-
-
-deploy_dist:
-  stage: deploy
-  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
-  variables:
-    TZ: "Asia/Kolkata"
-  variables:
-    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
-  environment:
-    name: $ENVIRONMENT
-  script:
-    - cp -R /app/scripts/* ./
-    ## Sync time with NTP server
-    - service chrony start
-    - chronyc -a 'burst 4/4' && sleep 10
-    - chronyc sources
-    ## Connect to VPN
-    - python3 connect_vpn.py
-    - sleep 20s
-    - cat client.log
-    - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-    - IP_ADDRESS=$(curl ifconfig.me)
-    - echo "Public IP Address:$IP_ADDRESS"
-    ## Deploy to EC2 VM
-    - bash deploy_dist.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"  
     - when: never
