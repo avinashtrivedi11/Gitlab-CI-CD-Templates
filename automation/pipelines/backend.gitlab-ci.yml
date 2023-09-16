@@ -1,148 +1,61 @@
-# Define pipeline stages
-stages:
-  - build
-  - test
-  - migrate
-  - deploy
-
-# Include Gitlab template Jobs
+# Import templates for code quality and security scans
 include:
   - template: Jobs/Code-Quality.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
-  - template: Jobs/Container-Scanning.gitlab-ci.yml
 
-# default:
-#   tags:
-#     - saas-linux-medium-amd64
-  
-# creates a docker image with TAG and saves in container registry of repo 
-# docker build job
-build_docker:
-  stage: build
-  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-docker:1.0
-  services:
-    - name: docker:dind
+# Define pipeline stages
+stages:
+  - generate
+  - test
+
+# Generate the backend pipeline configuration
+backend_pipeline_generator:
+  stage: generate
+  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
   variables:
+    # Docker authentication for GitLab registry
     DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
-  before_script:
-    - cp -R /app/scripts/* ./
-    - source <(python3 set_environment_variables.py)
   script:
-    - bash build_docker.sh
+    - cp -R /app/scripts/* ./
+    - python3 backend_pipeline_generator.py
+  artifacts:
+    # Save the generated configuration for later stages
+    paths:
+      - backend_pipeline.yml
   rules:
     - if: $CI_PIPELINE_SOURCE == "pipeline"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - when: never  
- 
 
-# Base container scannig configuration 
-container_scanning:
+# Trigger the generated backend pipeline
+backend_pipeline_trigger:
+  stage: generate
+  needs: ["backend_pipeline_generator"]
+  trigger:
+    include:
+      - artifact: backend_pipeline.yml
+        job: backend_pipeline_generator
+    strategy: depend
   rules:
     - if: $CI_PIPELINE_SOURCE == "pipeline"
-      variables:
-        GIT_STRATEGY: fetch
-        CS_IMAGE: $CI_REGISTRY_IMAGE:$TAG
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      variables:
-        TAG: merge_requests
-        GIT_STRATEGY: fetch
-        CS_IMAGE: $CI_REGISTRY_IMAGE:$TAG
-    
-# # black job in test stage
-# black:
-#   stage: test
-#   image: detecttechnologies/python-code-quality:latest
-#   script:
-#     - black --diff --color --line-length 119 . || true
-#     - black --check --line-length 119 . || true
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_PIPELINE_SOURCE == "pipeline"
-
-# # pylama job in test stage
-# pylama:
-#   stage: test
-#   # tags:
-#   #   - saas-linux-medium-amd64
-#   image: detecttechnologies/python-code-quality:latest
-#   script:
-#     - pylama . || true
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_PIPELINE_SOURCE == "pipeline"
-
-# Template test jobs to only run on merge requests
+  
+# Enforce code quality checks, mainly for merge requests
 code_quality:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"  
+      when: never 
+    - when: never
 
+# Check for exposed secrets, mainly for merge requests
 secret_detection:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"  
+    - when: never
 
+# Use Semgrep for static security analysis, mainly for merge requests
 semgrep-sast:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-
-
-# Migrate and Prepopulate Jobs
-migration_and_pre-population:
-  stage: migrate
-  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-migration:1.0
-  variables:
-    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
-  script:
-    - cp -R /app/scripts/* ./
-    - source <(python3 set_environment_variables.py)
-    - service chrony start
-    ## Connect to VPN
-    - python3 connect_vpn.py
-    - sleep 10s
-    - cat client.log
-    - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-    - IP_ADDRESS=$(curl ifconfig.me)
-    - echo "Public IP Address:$IP_ADDRESS"
-    - echo "Getting database credentials"
-    - python3 api_call.py
-    - plants=$(python3 api_call.py)
-    - echo "Installing requirements"
-    - cd $ROOT_FOLDER
-    - pip install -r requirements.txt
-    - echo "Starting migration..."
-    - |
-      for plant in ${plants[@]}
-      do
-        db=$plant
-        echo "Applying migration for ${db} plant"
-        python manage.py migrate $APP_NAME --database $db
-        python manage.py create_fixtures $db
-      done
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-
-# Docker Deploy Jobs
-# Pipeline trigger from master repo scenario
-# base job to inherit from
-# pulls docker image from container registry, pushes to ECR, and update service on ECS
-
-deploy_docker:
-  stage: deploy
-  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-docker:1.0
-  environment:
-    name: $ENVIRONMENT
-  services:
-    - name: docker:dind
-  variables:
-    DOCKER_AUTH_CONFIG: '{"auths":{"registry.gitlab.com":{"username":"${CONTAINER_REGISTRY_USER}","password":"${CONTAINER_REGISTRY_TOKEN}"}}}'
-  script:
-    - cp -R /app/scripts/* ./
-    - source <(python3 set_environment_variables.py)
-    - bash deploy_docker.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"  
     - when: never
-  
