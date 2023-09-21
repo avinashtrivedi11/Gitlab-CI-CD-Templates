@@ -1,71 +1,121 @@
-# overall pipeline rules
+# Workflow Configuration
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
-      when: never  # Prevent pipeline run autromatically for push event
+      when: never  # Prevent automatic pipeline run for push events
     - when: always # Run pipeline for all other cases
 
-default:
-  tags:
-    - saas-linux-medium-amd64
-
-# pipeline variables: to choose an environment during runtime
+# Global Variables Configuration
 variables:
   CLIENTS: 
     value: "dev"
-    description: "Enter client's name separated by comma. Set to 'dev' for develop branch by default."
-  IMAGE_TAG:
+    description: "Enter client's name separated by comma. Default is 'dev' for develop branch."
+  VERSION:
     value: "dev"
-    description: "Docker image in BE repos will use this value to tag the image."
+    description: "Docker image tag. Default is 'dev'."
+  RUN_INFRASTRUCTURE_PIPELINE:
+    value: "false"
+    options:
+      - "true"
+      - "false"
+    description: "Set to 'true' to run infrastructure pipeline using terraform, or 'false' to not run in case of minor code changes."
+  RUN_DEPLOYMENT_PIPELINE:
+    value: "true"
+    options:
+      - "true"
+      - "false"
+    description: "Set to 'true' to run infrastructure pipeline using terraform, or 'false' to not run in case of minor code changes."
+  RUN_CODE_QUALITY_TEST:
+    value: "true"
+    options:
+      - "true"
+      - "false"
+    description: "Set to 'true' to run the QA tests, or 'false' to not run them."
   RUN_AUTOMATION_TEST:
     value: "false"
-    description: "Set to true if you want to also run the QA tests for the respective portal."
-  LATEST_DEPLOYMENT_CHECK:
-    value: "true"
-    description: "Checks whether the latest commit is already deployed."
+    options:
+      - "true"
+      - "false"
+    description: "Set to 'true' to run the QA tests, or 'false' to not run them."
 
+# Pipeline Stages Configuration
 stages:
-  - identify
-  - trigger
+  - generate
 
-identify_clients:
-  stage: identify
+# Default Configuration
+default:
   image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
+  tags:
+    - saas-linux-medium-amd64
+
+# Jobs Configuration
+infrastructure_pipeline_generator:
+  stage: generate
   script:
     - cp -R /app/scripts/* ./
-    - python3 identify_clients.py
+    - python3 terraform_pipeline_generator.py
   artifacts:
     paths:
-      - trigger-deployment.yml
-
-identify_tests:
-  stage: identify
-  image: registry.gitlab.com/detecttechnologies/software/webapps/t-pulse/web/tpulse-msa/tpulse-msa-cicd/tpulse-python:1.0
-  script:
-    - cp -R /app/scripts/* ./
-    - python3 identify_portal_url.py
+      - terraform_pipeline.yml
   rules:
-    - if: $RUN_AUTOMATION_TEST == "true"
-  artifacts:
-    paths:
-      - trigger-automation-test.yml
-
-trigger_clients:
-  stage: trigger
-  needs: ["identify_clients"]
+    - if: $RUN_INFRASTRUCTURE_PIPELINE == "true"
+infrastructure_pipeline_trigger:
+  stage: generate
+  needs: ["infrastructure_pipeline_generator"]
   trigger:
     include:
-      - artifact: trigger-deployment.yml
-        job: identify_clients
+      - artifact: terraform_pipeline.yml
+        job: infrastructure_pipeline_generator
     strategy: depend
+  rules:
+    - if: $RUN_INFRASTRUCTURE_PIPELINE == "true"
+      when: manual
 
-trigger_tests:
-  stage: trigger
-  needs: ["trigger_clients", "identify_tests"]
+repos_pipeline_generator:
+  stage: generate
+  # needs: ["infrastructure_pipeline_generator"]
+  script:
+    - cp -R /app/scripts/* ./
+    - python3 deployment_pipeline_generator.py
+  artifacts:
+    paths:
+      - deployment_pipeline.yml
+  rules:
+    - if: $RUN_DEPLOYMENT_PIPELINE == "true"
+      when: manual
+
+repos_pipeline_trigger:
+  stage: generate
+  needs: ["repos_pipeline_generator"]
+  trigger:
+    include:
+      - artifact: deployment_pipeline.yml
+        job: repos_pipeline_generator
+    strategy: depend
+  rules:
+    - if: $RUN_DEPLOYMENT_PIPELINE == "true"
+
+tests_pipeline_generator:
+  stage: generate
+  # needs: ["infrastructure_pipeline_generator", "repos_pipeline_generator"]
+  script:
+    - cp -R /app/scripts/* ./
+    - python3 test_pipeline_generator.py
+  artifacts:
+    paths:
+      - test_pipeline.yml
+  rules:
+    - if: $RUN_AUTOMATION_TEST == "true"
+      when: manual
+   
+
+tests_pipeline_trigger:
+  stage: generate
+  needs: ["tests_pipeline_generator"]
   trigger:
     include: 
-      - artifact: trigger-automation-test.yml
-        job: identify_tests
+      - artifact: test_pipeline.yml
+        job: tests_pipeline_generator
     strategy: depend
   rules:
     - if: $RUN_AUTOMATION_TEST == "true"
