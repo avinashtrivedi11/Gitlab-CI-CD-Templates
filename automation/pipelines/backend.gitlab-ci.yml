@@ -51,11 +51,13 @@ secret_detection:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"  
+      when: never
     - when: never
 
 # Use Semgrep for static security analysis, mainly for merge requests
 semgrep-sast:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"  
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never 
     - when: never
