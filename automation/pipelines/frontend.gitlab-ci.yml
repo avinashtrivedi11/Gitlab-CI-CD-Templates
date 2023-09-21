@@ -49,6 +49,7 @@ secret_detection:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"  
+      when: never 
     - when: never
 
 # Static security analysis for Node.js; primarily triggered on merge requests
@@ -56,11 +57,13 @@ nodejs-scan-sast:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"  
+      when: never 
     - when: never
 
 # Static security analysis using Semgrep; primarily triggered on merge requests
 semgrep-sast:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "pipeline"  
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never   
     - when: never
